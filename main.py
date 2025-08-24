@@ -22,6 +22,13 @@ import sys
 if len(sys.argv) <= 1:
     sys.argv.append("--no-voice")
 
+st.set_page_config(
+    page_title="Zoey - AI Storyteller",
+    page_icon="🌙",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 """
 ZOEY - Advanced Voice AI Storyteller
 ==================================
@@ -168,12 +175,31 @@ class VoiceManager:
     def __init__(self):
         self.recognizer = sr.Recognizer()
         self.microphone = sr.Microphone()
-        self.tts_engine = pyttsx3.init()
-        self.setup_tts()
+        self.tts_engine = self._init_tts_engine()
+        if self.tts_engine:
+            self.setup_tts()
         pygame.mixer.init()
+    
+    def _init_tts_engine(self):
+        """Initialize TTS engine with Windows COM handling and safe fallback"""
+        try:
+            if sys.platform.startswith('win'):
+                try:
+                    import pythoncom  # type: ignore
+                    pythoncom.CoInitialize()
+                except Exception:
+                    pass
+                return pyttsx3.init(driverName='sapi5')
+            else:
+                return pyttsx3.init()
+        except Exception as e:
+            st.warning(f"Local TTS unavailable; falling back to gTTS. Reason: {e}")
+            return None
     
     def setup_tts(self):
         """Configure text-to-speech engine"""
+        if not self.tts_engine:
+            return
         voices = self.tts_engine.getProperty('voices')
         if voices:
             # Try to set a female voice for Zoey
@@ -211,8 +237,8 @@ class VoiceManager:
     def speak(self, text: str, language: str = 'en') -> None:
         """Convert text to speech with language support"""
         try:
-            if language == 'en':
-                # Use pyttsx3 for English (better quality)
+            if language == 'en' and self.tts_engine:
+                # Use pyttsx3 for English (better quality) when available
                 self.tts_engine.say(text)
                 self.tts_engine.runAndWait()
             else:
@@ -698,12 +724,6 @@ class ZoeyStorytellerApp:
     
     def run(self):
         """Run the main application"""
-        st.set_page_config(
-            page_title="Zoey - AI Storyteller",
-            page_icon="🌙",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
         
         # Custom CSS for better UI
         st.markdown("""
